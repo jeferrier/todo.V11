@@ -18,5 +18,6 @@ Commands as they will appear when done:
 /plan -r[--remove] todoID                    -- removes a todo from the plan
 /plan -X[--reset]                            -- completely chucks the plan for today
 /plan planFormat                             -- shows the current plan with planFormat (see formats below)
+/exit                                        -- exits the process
 
 Done currently:
