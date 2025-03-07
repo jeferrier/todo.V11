@@ -1,3 +1,4 @@
+const fs = require('fs');
 const readline = require('readline');
 
 const commandLinePrompt = readline.createInterface({
@@ -28,6 +29,30 @@ const tasks = [];
 		return emptyResult;
 */
 
+const util = {
+	clone(objectToCopy){
+		let result = {};
+		for (const [key, value] of Object.entries(objectToCopy)){
+			if (typeof value === 'string'){
+				result[key] = '' + value;
+			} else if (typeof value === 'number'){
+				result[key] = '' + value;
+			} else if (typeof value === 'function'){
+				result[key] = value;
+			} else if (Array.isArray(value)){
+				let newArray = [];
+				value.forEach(item => {
+					newArray.push(this.clone(item));
+				});
+				result[key] = newArray;
+			} else {
+				result[key] = this.clone(value);
+			}
+		}
+		return result;
+	},
+};
+
 const TodoLibrary = {
 	todoIDGlobal: 1,
 	todos: [],
@@ -51,7 +76,45 @@ const TodoLibrary = {
 		this.todos.forEach(todo => {
 			console.log(`${todo.id}\t${todo.title}`);
 		});
-	}
+	},
+
+	loadTodos(){
+		let rawContents = '';
+		try {
+			rawContents = fs.readFileSync('todo-store.txt', 'utf8');
+		} catch (error){
+			console.log('\n!!! - Todo Store file does not exist. Please create todo-store.txt and restart the program.');
+			process.exit();
+		}
+
+		const contentLines = rawContents.split('\n');
+		contentLines.forEach(contentLine => {
+			if (contentLine !== ''){
+				let parsedLine = JSON.parse(contentLine);
+				this.todos.push(this.newTodo(parsedLine));
+			}
+		});
+	},
+	saveTodos(){
+		// Pre-process IDs so that we can repopulate them later
+		let newIdGlobal = 1;
+		let saveableTodos = [];
+		let idToNewIDMap = {};
+		this.todos.forEach(todoItem => {
+			idToNewIDMap[todoItem.id] = newIdGlobal++;
+		});
+		this.todos.forEach(todoItem => {
+			let copiedTodoItem = util.clone(todoItem);
+
+			copiedTodoItem.id = idToNewIDMap[copiedTodoItem.id];
+			// TODO: Handle nesting when it becomes a thing
+			saveableTodos.push(copiedTodoItem);
+		});
+		for (let a = 0; a < saveableTodos.length; a++){
+			saveableTodos[a] = JSON.stringify(saveableTodos[a]);
+		}
+		fs.writeFileSync('todo-store.txt', saveableTodos.join('\n'), 'utf8');
+	},
 };
 
 class TodoCommand {}
@@ -141,6 +204,11 @@ LineProcessor.processLineToCommand = function(line){
 	return false;
 };
 
+TodoLibrary.loadTodos();
+setInterval(() => {
+	TodoLibrary.saveTodos();
+},
+5000);
 commandLinePrompt.prompt();
 
 commandLinePrompt.on('line', (line) => {
