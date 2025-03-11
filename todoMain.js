@@ -33,6 +33,7 @@ const util = {
 	},
 
 	tabifyForTablePrint(arrayOfArrays){
+		// Determine the max column length for each column in the result set
 		let columnLengths = [];
 		arrayOfArrays.forEach(array => {
 			for (let a = 0; a < array.length; a++){
@@ -45,29 +46,35 @@ const util = {
 				}
 			}
 		});
+		// Adjust each column to match that size
 		arrayOfArrays.forEach(array => {
 			for (let a = 0; a < array.length - 1; a++){
-				let thisColumnLengthInTabs = Math.floor(columnLengths[a] / 8) + 1;
-				let arrayColumnLengthInTabs = Math.floor(array[a].length / 8);
-				for (let b = 0; b < thisColumnLengthInTabs - arrayColumnLengthInTabs; b++){
-					array[a] = array[a] + '\t';
+				let thisColumnLength = columnLengths[a];
+				while (array[a].length < columnLengths[a]){
+					// TODO: Format this with the format commands/using options
+					if (a > 2){
+						array[a] = ' ' + array[a];
+					} else {
+						array[a] = array[a] + ' ';
+					}
 				}
 			}
 		});
 		for (let a = 0; a < arrayOfArrays.length; a++){
-			arrayOfArrays[a] = arrayOfArrays[a].join('');
+			arrayOfArrays[a] = arrayOfArrays[a].join('    ');
 		}
 		return arrayOfArrays.join('\n');
 	},
 
+	daysOfTheWeek: [
+		'S', 'M', 'T', 'W', 'R', 'F', 'A'
+	],
 	dateStampMessage(message){
-		let daysOfTheWeek = [
-			'S', 'M', 'T', 'W', 'R', 'F', 'A'
-		];
 		let now = new Date();
 		let years = '' + now.getFullYear();
 		let months = '' + (now.getMonth() + 1);
 		let days = '' + now.getDate();
+		let dayOfTheWeek = this.daysOfTheWeek[now.getDay()];
 		let hours = '' + now.getHours();
 		let minutes = '' + now.getMinutes();
 
@@ -83,7 +90,7 @@ const util = {
 		while (minutes.length < 2){
 			minutes = '0' + minutes;
 		}
-		return `[${years}-${months}-${days}-${daysOfTheWeek[now.getDay()]}|${hours}:${minutes}] ${message}`;
+		return `[${years}-${months}-${days}-${dayOfTheWeek}|${hours}:${minutes}] ${message}`;
 	}
 };
 
@@ -104,7 +111,7 @@ const TodoLibrary = {
 				newTodos.push(todoItem);
 			}
 			if (todoItem.childs.length > 0){
-				newChilds = [];
+				let newChilds = [];
 				todoItem.childs.forEach(childTodoId => {
 					if (childTodoId !== todoId){
 						newChilds.push(childTodoId);
@@ -130,26 +137,39 @@ const TodoLibrary = {
 
 	printAsList(todo){
 		let table = [
-			['id', 'S title', 'Estimated', 'Completed', 'Remaining']
+			['S', 'Id', 'Title', 'Estimated', 'Completed', 'Remaining']
 		];
 		if (todo){
+			let status = '';
+			if (todo.id === ProgramState.trackingTodoId){
+				status = '*';
+			}
 			table.push([
-				todo.id, todo.title, todo.estimatedTime, todo.completedTime, Math.max(0, todo.estimatedTime - todo.completedTime)
+				status, todo.id, todo.title, todo.estimatedTime, todo.completedTime, Math.max(0, todo.estimatedTime - todo.completedTime)
 			]);
 		} else {
 			this.todos.forEach(todo => {
-				let title = todo.title;
+				let status = '';
 				if (todo.id === ProgramState.trackingTodoId){
-					title = '* ' + title;
-				} else {
-					title = '  ' + title;
+					status = '*';
 				}
 				table.push([
-					todo.id, title, todo.estimatedTime, todo.completedTime, Math.max(0, todo.estimatedTime - todo.completedTime)
+					status, todo.id, todo.title, todo.estimatedTime, todo.completedTime, Math.max(0, todo.estimatedTime - todo.completedTime)
 				]);
 			});
 		}
 		console.log(util.tabifyForTablePrint(table));
+	},
+	listAllTouchedIdsRecurse(todo){
+		let allTouchedIds = [todo.id];
+		for (let a = 0; a < todo.childs.length; a++){
+			let childTodoItemId = todo.childs[a];
+			let foundTodo = TodoLibrary.getTodoById(childTodoItemId);
+			if (foundTodo){
+				allTouchedIds = [...allTouchedIds, ...this.listAllTouchedIdsRecurse(foundTodo)];
+			}
+		}
+		return allTouchedIds;
 	},
 	// Descending is an internal-only variable that indicates if the function was called by this utility
 	// or otherwise
@@ -158,44 +178,61 @@ const TodoLibrary = {
 
 		// When we ARE top level
 		if (!descending){
-			// Mark ALL todos untouched
-			// This will allow us to show each todo only one time in the tree view
-			this.todos.forEach(todo => {
-				todo.touched = false;
-			});
 			// Add a header row for the first todo only
 			// (It'll be a bit off anyways).
 			table.push(
-				['id', 'title', 'Estimated', 'Completed', 'Remaining']
+				['S', 'Id', 'Title', 'Estimated', 'Completed', 'Remaining']
 			);
 		}
 
+		// Working on a single todo NOT the full list
 		if (todo && !todo.touched){
-			todo.touched = true;
 			// Add this todo
+			let status = '';
+			if (todo.id === ProgramState.trackingTodoId){
+				status = '*';
+			}
 			table.push([
-				todo.id, todo.title, todo.estimatedTime, todo.completedTime, Math.max(0, todo.estimatedTime - todo.completedTime)
+				status, todo.id, todo.title, todo.estimatedTime, todo.completedTime, Math.max(0, todo.estimatedTime - todo.completedTime)
 			]);
-			// Add any untouched children
+			// Add any children
 			// NOTE: If a todo is a child of multiple todos, that could cause issues with not showing nesting properly
 			todo.childs.forEach(todoChildItemId => {
 				let foundChildTodo = this.getTodoById(todoChildItemId);
-				if (foundChildTodo.touched){
-					return;
-				}
 				let childTodoTable = this.printAsTree(foundChildTodo, true);
 				childTodoTable.forEach(childTodoArray => {
-					table.push(['->', ...childTodoArray]);
+					childTodoArray[1] = '->' + childTodoArray[1];
+					table.push(childTodoArray);
+					// table.push([childTodoArray[0], '->', ...(childTodoArray.slice(1))]);
 				});
 			});
+
+		// Full list of todos
 		} else {
+			// Create a list of all todos in the library
+			let topLevelTodosMap = {};
 			this.todos.forEach(todo => {
-				if (todo.touched){
-					return;
+				topLevelTodosMap[todo.id] = true;
+			});
+			// Remove those IDs which appear as children of other todos
+			this.todos.forEach(todo => {
+				let allTouchedIds = this.listAllTouchedIdsRecurse(todo);
+				for (let a = 0; a < allTouchedIds.length; a++){
+					let touchedTodoId = allTouchedIds[a];
+					if (touchedTodoId === todo.id){
+						continue;
+					}
+					delete topLevelTodosMap[touchedTodoId];
 				}
-				todo.touched = true;
+			});
+			for (const [id, trueBool] of Object.entries(topLevelTodosMap)){
+				let todo = TodoLibrary.getTodoById(id);
+				let status = '';
+				if (todo.id === ProgramState.trackingTodoId){
+					status = '*';
+				}
 				table.push([
-					todo.id, todo.title, todo.estimatedTime, todo.completedTime, Math.max(0, todo.estimatedTime - todo.completedTime)
+					status, todo.id, todo.title, todo.estimatedTime, todo.completedTime, Math.max(0, todo.estimatedTime - todo.completedTime)
 				]);
 				todo.childs.forEach(todoChildItemId => {
 					let foundChildTodo = this.getTodoById(todoChildItemId);
@@ -204,18 +241,16 @@ const TodoLibrary = {
 					}
 					let childTodoTable = this.printAsTree(foundChildTodo, true);
 					childTodoTable.forEach(childTodoArray => {
-						table.push(['->', ...childTodoArray]);
+						childTodoArray[1] = '->' + childTodoArray[1];
+						table.push(childTodoArray);
+						// table.push([childTodoArray[0], '->', ...(childTodoArray.slice(1))]);
 					});
 				});
-			});
+			}
 		}
 
 		// When we ARE top level
 		if (!descending){
-			// Now that we've finished, clear all touched markers
-			this.todos.forEach(todo => {
-				delete todo.touched;
-			});
 			console.log(util.tabifyForTablePrint(table));
 		} else {
 			return table;
@@ -472,10 +507,6 @@ TrackCommand.lineToCommand = function(line){
 		return true;
 };
 
-// Notes mode
-// Looking for `/notes`
-// Other
-// Looking for `/notes id`
 class NotesCommand {}
 NotesCommand.notesModeCommand = function(line){
 		const emptyResult = false;
@@ -576,7 +607,7 @@ TodoLibrary.loadTodos();
 setInterval(() => {
 	TodoLibrary.saveTodos();
 },
-5000);
+30000);
 commandLinePrompt.prompt();
 
 commandLinePrompt.on('line', (line) => {
@@ -586,6 +617,15 @@ commandLinePrompt.on('line', (line) => {
 		console.log('Invalid Command');
 	}
 	commandLinePrompt.prompt();
+});
+
+commandLinePrompt.on('history', (history) => {
+	if (
+		ProgramState.inNotesMode
+	    && history[0].indexOf('/notes') !== 0
+	){
+		history.shift();
+	}
 });
 
 commandLinePrompt.on('close', () => {
