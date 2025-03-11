@@ -1,0 +1,24 @@
+{
+  "name": "todo.v11",
+  "type": "module",
+  "version": "0.0.5",
+  "description": "A Todo REPL tool",
+  "main": "todoMain.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeferrier/todo.V11.git"
+  },
+  "keywords": [
+    "todo",
+    "repl"
+  ],
+  "author": "James Ferrier",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jeferrier/todo.V11/issues"
+  },
+  "homepage": "https://github.com/jeferrier/todo.V11#readme"
+}
