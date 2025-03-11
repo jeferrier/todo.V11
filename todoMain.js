@@ -575,6 +575,7 @@ ExitCommand.lineToCommand = function(line){
 			return emptyResult;
 		}
 
+		TodoLibrary.saveTodos();
 		process.exit();
 };
 
@@ -607,7 +608,7 @@ TodoLibrary.loadTodos();
 setInterval(() => {
 	TodoLibrary.saveTodos();
 },
-30000);
+5000);
 commandLinePrompt.prompt();
 
 commandLinePrompt.on('line', (line) => {
@@ -621,7 +622,7 @@ commandLinePrompt.on('line', (line) => {
 
 commandLinePrompt.on('history', (history) => {
 	if (
-		ProgramState.inNotesMode
+		ProgramState.inNotesMode()
 	    && history[0].indexOf('/notes') !== 0
 	){
 		history.shift();
